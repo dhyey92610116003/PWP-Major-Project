@@ -1,0 +1,202 @@
+ %% PLEASE DO NOT MODIFY OR DELETE THIS FILE! %% 
+ %% This file contains information about the installation of an application. %% 
+ %% It will be used to automatically remove all application components from your computer if you choose to do so. %% 
+
+
+NOTE: Beginning of the bootstrapper section
+
+CONFIG: Title: "UTM Software"
+
+ACTION: RegKey: "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion", "SharedDLLs"
+
+ACTION: SystemFile: "C:\Windows\System32\VB6STKIT.DLL"
+(File currently on disk was already up to date)
+
+ACTION: SystemFile: "C:\Windows\System32\COMCAT.DLL"
+(File currently on disk was already up to date)
+
+ACTION: SystemFile: "C:\Windows\System32\stdole2.tlb"
+(File currently on disk was already up to date)
+
+ACTION: SystemFile: "C:\Windows\System32\asycfilt.dll"
+(File currently on disk was already up to date)
+
+ACTION: SystemFile: "C:\Windows\System32\olepro32.dll"
+(File currently on disk was already up to date)
+
+ACTION: SystemFile: "C:\Windows\System32\oleaut32.dll"
+(File currently on disk was already up to date)
+
+ACTION: SystemFile: "C:\Windows\System32\msvbvm60.dll"
+(File currently on disk was already up to date)
+
+ACTION: DllSelfRegister: "C:\WINDOWS\SYSTEM32\COMCAT.DLL"
+
+ACTION: TLBRegister: "C:\WINDOWS\SYSTEM32\stdole2.tlb"
+
+ACTION: DllSelfRegister: "C:\WINDOWS\SYSTEM32\olepro32.dll"
+
+ACTION: DllSelfRegister: "C:\WINDOWS\SYSTEM32\oleaut32.dll"
+
+ACTION: DllSelfRegister: "C:\WINDOWS\SYSTEM32\msvbvm60.dll"
+
+NOTE: End of the bootstrapper section
+
+NOTE: Now spawning the main Setup program 'Setup1.exe'....
+
+ACTION: CreateDir: "C:\UTM100_07_18_2"
+
+ACTION: CreateDir: "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\UTM Software"
+
+ACTION: PrivateFile: "C:\UTM100_07_18_2\HEADINGS.ini"
+(File was not found or was an older version -- new file copied)
+
+ACTION: CreateDir: "C:\UTM100_07_18_2\EXTT"
+
+ACTION: CreateDir: "C:\UTM100_07_18_2\EXTT\TENS"
+
+ACTION: PrivateFile: "C:\UTM100_07_18_2\EXTT\TENS\TM12.DAT"
+(File was not found or was an older version -- new file copied)
+
+ACTION: PrivateFile: "C:\UTM100_07_18_2\EXTT\M12.DAT"
+(File was not found or was an older version -- new file copied)
+
+ACTION: CreateDir: "C:\UTM100_07_18_2\SERVO_SETTINGS"
+
+ACTION: PrivateFile: "C:\UTM100_07_18_2\SERVO_SETTINGS\Sample"
+(File was not found or was an older version -- new file copied)
+
+ACTION: PrivateFile: "C:\UTM100_07_18_2\LOGO.JPG"
+(File was not found or was an older version -- new file copied)
+
+ACTION: CreateDir: "C:\UTM100_07_18_2\CAL"
+
+ACTION: CreateDir: "C:\UTM100_07_18_2\CAL\LOAD"
+
+ACTION: PrivateFile: "C:\UTM100_07_18_2\CAL\LOAD\TRIAL_LOADCAL_09_03_2010"
+(File was not found or was an older version -- new file copied)
+
+ACTION: CreateDir: "C:\UTM100_07_18_2\CAL\EXT"
+
+ACTION: PrivateFile: "C:\UTM100_07_18_2\CAL\EXT\EXTCAL"
+(File was not found or was an older version -- new file copied)
+
+ACTION: PrivateFile: "C:\UTM100_07_18_2\EXTT\TENS\TSE1.dat"
+(File was not found or was an older version -- new file copied)
+
+ACTION: PrivateFile: "C:\UTM100_07_18_2\EXTT\TENS\TEXT1.dat"
+(File was not found or was an older version -- new file copied)
+
+ACTION: CreateDir: "C:\UTM100_07_18_2\TENS"
+
+ACTION: PrivateFile: "C:\UTM100_07_18_2\TENS\TENS.dat"
+(File was not found or was an older version -- new file copied)
+
+ACTION: PrivateFile: "C:\UTM100_07_18_2\EXTT\SE1.DAT"
+(File was not found or was an older version -- new file copied)
+
+ACTION: CreateDir: "C:\UTM100_07_18_2\BATCH"
+
+ACTION: PrivateFile: "C:\UTM100_07_18_2\BATCH\COMPANY.JPG"
+(File was not found or was an older version -- new file copied)
+
+ACTION: CreateDir: "C:\UTM100_07_18_2\BATCH\TORS"
+
+ACTION: PrivateFile: "C:\UTM100_07_18_2\BATCH\TORS\TORS_SAMPLE"
+(File was not found or was an older version -- new file copied)
+
+ACTION: CreateDir: "C:\UTM100_07_18_2\BATCH\TENS"
+
+ACTION: PrivateFile: "C:\UTM100_07_18_2\BATCH\TENS\TRIAL2"
+(File was not found or was an older version -- new file copied)
+
+ACTION: PrivateFile: "C:\UTM100_07_18_2\BATCH\TENS\TRIAL1"
+(File was not found or was an older version -- new file copied)
+
+ACTION: CreateDir: "C:\UTM100_07_18_2\BATCH\SHER"
+
+ACTION: PrivateFile: "C:\UTM100_07_18_2\BATCH\SHER\SHEAR_SAMPLE"
+(File was not found or was an older version -- new file copied)
+
+ACTION: CreateDir: "C:\UTM100_07_18_2\BATCH\EXTT"
+
+ACTION: PrivateFile: "C:\UTM100_07_18_2\BATCH\EXTT\TR1"
+(File was not found or was an older version -- new file copied)
+
+ACTION: CreateDir: "C:\UTM100_07_18_2\BATCH\COMP"
+
+ACTION: PrivateFile: "C:\UTM100_07_18_2\BATCH\COMP\COMPDATA"
+(File was not found or was an older version -- new file copied)
+
+ACTION: CreateDir: "C:\UTM100_07_18_2\BATCH\BEND"
+
+ACTION: PrivateFile: "C:\UTM100_07_18_2\BATCH\BEND\BEND_SAMPLE"
+(File was not found or was an older version -- new file copied)
+
+ACTION: CreateDir: "C:\UTM100_07_18_2\RUBB"
+
+ACTION: PrivateFile: "C:\UTM100_07_18_2\RUBB\RUBB.DAT"
+(File was not found or was an older version -- new file copied)
+
+ACTION: PrivateFile: "C:\UTM100_07_18_2\UNITEK.INI"
+(File was not found or was an older version -- new file copied)
+
+ACTION: CreateDir: "C:\UTM100_07_18_2\sher"
+
+ACTION: PrivateFile: "C:\UTM100_07_18_2\sher\SHEAR.DAT"
+(File was not found or was an older version -- new file copied)
+
+ACTION: CreateDir: "C:\UTM100_07_18_2\bend"
+
+ACTION: PrivateFile: "C:\UTM100_07_18_2\bend\BEND.DAT"
+(File was not found or was an older version -- new file copied)
+
+ACTION: PrivateFile: "C:\UTM100_07_18_2\tens\6032643.dat"
+(File was not found or was an older version -- new file copied)
+
+ACTION: PrivateFile: "C:\UTM100_07_18_2\EXTT\EXT1.DAT"
+(File was not found or was an older version -- new file copied)
+
+ACTION: CreateDir: "C:\UTM100_07_18_2\comp"
+
+ACTION: PrivateFile: "C:\UTM100_07_18_2\comp\comp.DAT"
+(File was not found or was an older version -- new file copied)
+
+ACTION: PrivateFile: "C:\UTM100_07_18_2\Utnsrl.ini"
+(File was not found or was an older version -- new file copied)
+
+ACTION: PrivateFile: "C:\UTM100_07_18_2\tens\STD.DAT"
+(File was not found or was an older version -- new file copied)
+
+ACTION: SharedFile: "C:\Windows\system32\comdlg32.ocx"
+(File was not found or was an older version -- new file copied)
+
+ACTION: SharedFile: "C:\Windows\system32\MSCOMM32.OCX"
+(File was not found or was an older version -- new file copied)
+
+ACTION: SharedFile: "C:\Windows\system32\MSCOMCTL.OCX"
+(File was not found or was an older version -- new file copied)
+
+ACTION: SharedFile: "C:\Windows\system32\MSFLXGRD.OCX"
+(File was not found or was an older version -- new file copied)
+
+ACTION: PrivateFile: "C:\UTM100_07_18_2\UTNSRLEXE.exe"
+(File was not found or was an older version -- new file copied)
+
+ACTION: DllSelfRegister: "C:\Windows\system32\comdlg32.ocx"
+
+ACTION: DllSelfRegister: "C:\Windows\system32\MSCOMM32.OCX"
+
+ACTION: DllSelfRegister: "C:\Windows\system32\MSCOMCTL.OCX"
+
+ACTION: DllSelfRegister: "C:\Windows\system32\MSFLXGRD.OCX"
+
+*** WARNING: No icon was specified in SETUP.LST for .  Do you want to continue without creating this icon?  Click Yes to continue.  Click No to Exit Setup.
+*** WARNING: (User Responded with 'Yes')
+
+ACTION: ShellLink: "UTM Software", "UTM  100 , 07-2018"
+
+ACTION: RegKey: "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion", "App Paths\UTNSRLEXE.exe"
+
+ACTION: RegValue: "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\UTNSRLEXE.exe", ""
+
