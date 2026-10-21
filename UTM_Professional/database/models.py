@@ -30,6 +30,10 @@ class TestRecord(Base):
     peak_load = Column(Float)
     peak_stress = Column(Float)
     
+    # Associated Media (Synchronized Video & Fracture Snapshot)
+    video_path = Column(String(500), nullable=True)
+    snapshot_path = Column(String(500), nullable=True)
+    
     # Raw Data Arrays (Stored as JSON string)
     time_data_json = Column(Text)
     load_data_json = Column(Text)
@@ -61,6 +65,9 @@ class DBManager:
                 peak_load=results.get('peak_load', 0.0),
                 peak_stress=results.get('peak_stress', 0.0),
                 
+                video_path=metadata.get('video_path', ''),
+                snapshot_path=metadata.get('snapshot_path', ''),
+                
                 time_data_json=json.dumps(arrays.get('time', [])),
                 load_data_json=json.dumps(arrays.get('load', [])),
                 ext_data_json=json.dumps(arrays.get('ext', []))
@@ -82,7 +89,8 @@ class DBManager:
         try:
             records = session.query(
                 TestRecord.id, TestRecord.timestamp, TestRecord.operator, 
-                TestRecord.material, TestRecord.peak_load, TestRecord.peak_stress
+                TestRecord.material, TestRecord.standard, TestRecord.sample,
+                TestRecord.peak_load, TestRecord.peak_stress, TestRecord.video_path
             ).order_by(TestRecord.id.desc()).all()
             return records
         finally:

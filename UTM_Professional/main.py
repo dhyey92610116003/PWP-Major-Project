@@ -1,4 +1,9 @@
+import os
 import sys
+
+# Suppress noisy OpenCV internal C++ device probe warnings on Windows
+os.environ["OPENCV_LOG_LEVEL"] = "OFF"
+
 from PySide6.QtWidgets import QApplication
 from ui.dashboard import Dashboard
 from ui.login import LoginScreen

@@ -2,7 +2,7 @@ import os
 from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                                  QPushButton, QLabel, QComboBox, QGroupBox, 
                                  QGridLayout, QMessageBox, QLineEdit,
-                                 QCheckBox, QFrame, QScrollArea, QFileDialog, QSizePolicy, QLayout)
+                                 QCheckBox, QFrame, QScrollArea, QFileDialog, QSizePolicy, QLayout, QSplitter)
 from PySide6.QtCore import Qt, QTimer, QTime, QUrl
 from PySide6.QtGui import QFont, QDesktopServices, QAction
 
@@ -14,6 +14,8 @@ from ui.diagnostic_dialog import DiagnosticDialog
 from database.models import DBManager
 from reports.generator import ReportGenerator
 from reports.exporter import DataExporter
+from camera.camera_manager import CameraManager
+from ui.camera_widget import CameraWidget
 
 class Dashboard(QMainWindow):
     def __init__(self, machine_controller, settings_manager):
@@ -35,19 +37,24 @@ class Dashboard(QMainWindow):
         self.timer = QTimer(self)
         self.timer.timeout.connect(self._update_time)
         
+        # Initialize Enterprise Vision & Video Subsystem
+        self.camera_manager = CameraManager()
+        
         self._setup_menu()
         self._setup_ui()
         self._connect_signals()
         
+        # Start camera capture thread safely after UI is completely initialized
+        self.camera_manager.start_camera()
+        
         # Apply initial dimensions
         self._update_dimensions()
         
-        # Select saved COM port if available (User connects manually)
+        # Auto-detect and select connected machine COM port (e.g. COM3)
+        self._refresh_ports()
         saved_port = self.settings.get("com_port")
-        if saved_port:
-            idx = self.cb_ports.findText(saved_port)
-            if idx >= 0:
-                self.cb_ports.setCurrentIndex(idx)
+        if saved_port and self.cb_ports.findText(saved_port) >= 0:
+            self.cb_ports.setCurrentText(saved_port)
 
     def _setup_menu(self):
         menu_bar = self.menuBar()
@@ -82,6 +89,29 @@ class Dashboard(QMainWindow):
         act_diag = QAction("Hardware Diagnostics & Console", self)
         act_diag.triggered.connect(self._open_diagnostic_dialog)
         machine_menu.addAction(act_diag)
+        
+        # Vision & Camera Menu
+        cam_menu = menu_bar.addMenu("Vision && Camera")
+        act_dual_view = QAction("Dual View (Graph + Camera)", self)
+        act_dual_view.triggered.connect(lambda: self._set_active_view("dual"))
+        cam_menu.addAction(act_dual_view)
+        
+        act_graph_view = QAction("Live Graph Only", self)
+        act_graph_view.triggered.connect(lambda: self._set_active_view("graph"))
+        cam_menu.addAction(act_graph_view)
+        
+        act_cam_view = QAction("Live Camera & Vision Only", self)
+        act_cam_view.triggered.connect(lambda: self._set_active_view("camera"))
+        cam_menu.addAction(act_cam_view)
+        
+        cam_menu.addSeparator()
+        act_snap = QAction("Take Video Snapshot", self)
+        act_snap.triggered.connect(lambda: self.camera_widget._take_snapshot())
+        cam_menu.addAction(act_snap)
+        
+        act_open_vids = QAction("Open Recorded Videos Folder", self)
+        act_open_vids.triggered.connect(lambda: self.camera_widget._open_video_folder())
+        cam_menu.addAction(act_open_vids)
         
         # Reports Menu
         reports_menu = menu_bar.addMenu("Reports")
@@ -401,7 +431,7 @@ class Dashboard(QMainWindow):
         lbl_filter.setStyleSheet("font-size: 11px; color: #16a34a; font-weight: 500;")
         auto_layout.addWidget(lbl_filter)
         
-        self.btn_open_diag = QPushButton("🛠 Diagnostic & Serial Console")
+        self.btn_open_diag = QPushButton("Diagnostic & Serial Console")
         self.btn_open_diag.setStyleSheet("background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px; font-weight: 600;")
         self.btn_open_diag.setToolTip("Send raw commands & inspect incoming packets")
         self.btn_open_diag.clicked.connect(self._open_diagnostic_dialog)
@@ -417,11 +447,11 @@ class Dashboard(QMainWindow):
         # RIGHT MAIN MONITORING AREA
         # -------------------------------------------------------------------------
         main_content = QVBoxLayout()
-        main_content.setSpacing(10)
+        main_content.setSpacing(6)
         
         # A. Digital KPI Metric Cards (Gauges)
         gauge_grid = QGridLayout()
-        gauge_grid.setSpacing(10)
+        gauge_grid.setSpacing(6)
         
         self.lbl_load = self._create_kpi_card("LIVE LOAD", "0.00", "kN", "#0284c7", gauge_grid, 0, 0)
         self.lbl_stress = self._create_kpi_card("LIVE STRESS", "0.00", "MPa", "#7c3aed", gauge_grid, 0, 1)
@@ -433,22 +463,95 @@ class Dashboard(QMainWindow):
         
         main_content.addLayout(gauge_grid)
         
-        # B. High Performance Live Graph
-        graph_card = QFrame()
-        graph_card.setObjectName("card")
-        graph_card.setStyleSheet("""
+        # B. View Mode Switcher Header
+        view_bar = QFrame()
+        view_bar.setObjectName("card")
+        view_bar.setStyleSheet("""
             #card {
                 background-color: #ffffff;
                 border: 1px solid #cbd5e1;
                 border-radius: 8px;
             }
         """)
-        graph_layout = QVBoxLayout(graph_card)
-        graph_layout.setContentsMargins(8, 8, 8, 8)
+        view_bar_layout = QHBoxLayout(view_bar)
+        view_bar_layout.setContentsMargins(10, 6, 10, 6)
+        view_bar_layout.setSpacing(8)
         
+        lbl_view_title = QLabel("DISPLAY VIEW:")
+        lbl_view_title.setStyleSheet("font-size: 11px; font-weight: 700; color: #64748b; letter-spacing: 0.5px;")
+        view_bar_layout.addWidget(lbl_view_title)
+        
+        self.btn_view_dual = QPushButton("Dual View (Graph + Camera)")
+        self.btn_view_graph = QPushButton("Live Graph View")
+        self.btn_view_camera = QPushButton("Live Camera View")
+        
+        for btn in (self.btn_view_dual, self.btn_view_graph, self.btn_view_camera):
+            btn.setCursor(Qt.PointingHandCursor)
+            view_bar_layout.addWidget(btn)
+            
+        self.btn_view_dual.clicked.connect(lambda: self._set_active_view("dual"))
+        self.btn_view_graph.clicked.connect(lambda: self._set_active_view("graph"))
+        self.btn_view_camera.clicked.connect(lambda: self._set_active_view("camera"))
+        
+        view_bar_layout.addStretch()
+        
+        # Camera Quick Status Tag in view bar
+        self.lbl_cam_indicator = QLabel("● Vision Active")
+        self.lbl_cam_indicator.setStyleSheet("font-size: 11px; font-weight: 700; color: #16a34a; background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 2px 10px;")
+        view_bar_layout.addWidget(self.lbl_cam_indicator)
+        
+        main_content.addWidget(view_bar)
+        
+        # C. Center Monitoring Workspace (Resizable Splitter for Dual/Single View)
+        self.view_splitter = QSplitter(Qt.Horizontal)
+        self.view_splitter.setChildrenCollapsible(False)
+        self.view_splitter.setStyleSheet("""
+            QSplitter::handle {
+                background-color: #cbd5e1;
+                width: 4px;
+                border-radius: 2px;
+            }
+            QSplitter::handle:hover {
+                background-color: #0284c7;
+            }
+        """)
+        
+        # Container 1: Live Graph Card
+        self.graph_card = QFrame()
+        self.graph_card.setObjectName("card")
+        self.graph_card.setStyleSheet("""
+            #card {
+                background-color: #ffffff;
+                border: 1px solid #cbd5e1;
+                border-radius: 8px;
+            }
+        """)
+        graph_layout = QVBoxLayout(self.graph_card)
+        graph_layout.setContentsMargins(8, 8, 8, 8)
         self.graph = LiveGraph()
         graph_layout.addWidget(self.graph)
-        main_content.addWidget(graph_card, 1)
+        self.view_splitter.addWidget(self.graph_card)
+        
+        # Container 2: Live Camera & Vision Card
+        self.camera_card = QFrame()
+        self.camera_card.setObjectName("card")
+        self.camera_card.setStyleSheet("""
+            #card {
+                background-color: #ffffff;
+                border: 1px solid #cbd5e1;
+                border-radius: 8px;
+            }
+        """)
+        camera_layout = QVBoxLayout(self.camera_card)
+        camera_layout.setContentsMargins(6, 6, 6, 6)
+        self.camera_widget = CameraWidget(self.camera_manager, self)
+        camera_layout.addWidget(self.camera_widget)
+        self.view_splitter.addWidget(self.camera_card)
+        
+        main_content.addWidget(self.view_splitter, 1)
+        
+        # Set default view to Dual View
+        self._set_active_view("dual")
         
         # C. Bottom Action Controls Dock (Proper Spacing & No Truncation)
         action_bar = QFrame()
@@ -522,12 +625,12 @@ class Dashboard(QMainWindow):
             }}
         """)
         card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(12, 8, 12, 8)
-        card_layout.setSpacing(2)
+        card_layout.setContentsMargins(10, 4, 10, 4)
+        card_layout.setSpacing(1)
         
         header_row = QHBoxLayout()
         lbl_title = QLabel(title)
-        lbl_title.setStyleSheet("font-size: 11px; font-weight: 700; color: #475569; letter-spacing: 0.5px;")
+        lbl_title.setStyleSheet("font-size: 10px; font-weight: 700; color: #475569; letter-spacing: 0.5px;")
         header_row.addWidget(lbl_title)
         
         if tag:
@@ -535,10 +638,10 @@ class Dashboard(QMainWindow):
             lbl_tag.setStyleSheet(f"""
                 background-color: {accent_color};
                 color: #ffffff;
-                font-size: 9px;
+                font-size: 8px;
                 font-weight: 800;
                 border-radius: 3px;
-                padding: 1px 5px;
+                padding: 1px 4px;
             """)
             header_row.addStretch()
             header_row.addWidget(lbl_tag)
@@ -550,11 +653,11 @@ class Dashboard(QMainWindow):
         val_row = QHBoxLayout()
         val_row.setSpacing(4)
         lbl_val = QLabel(default_val)
-        lbl_val.setStyleSheet(f"font-family: 'Consolas', monospace; font-size: 24px; font-weight: 800; color: {accent_color};")
+        lbl_val.setStyleSheet(f"font-family: 'Consolas', monospace; font-size: 20px; font-weight: 800; color: {accent_color};")
         lbl_val.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         
         lbl_unit = QLabel(unit)
-        lbl_unit.setStyleSheet("font-size: 13px; font-weight: 600; color: #64748b; padding-bottom: 2px;")
+        lbl_unit.setStyleSheet("font-size: 11px; font-weight: 600; color: #64748b; padding-bottom: 2px;")
         lbl_unit.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
         
         val_row.addWidget(lbl_val)
@@ -569,7 +672,7 @@ class Dashboard(QMainWindow):
     def _connect_signals(self):
         self.btn_connect.clicked.connect(self._toggle_connection)
         self.btn_start.clicked.connect(self._start_test)
-        self.btn_stop.clicked.connect(self.controller.stop_test)
+        self.btn_stop.clicked.connect(self._stop_test)
         self.btn_tare.clicked.connect(self.controller.tare)
         self.btn_export.clicked.connect(self._export_csv)
         self.btn_pdf.clicked.connect(self._generate_pdf_report)
@@ -580,6 +683,9 @@ class Dashboard(QMainWindow):
         self.controller.data_updated.connect(self._update_live_data)
         self.controller.serial_manager.connection_status_changed.connect(self._on_connection_changed)
         self.controller.alarm_triggered.connect(self._show_alarm)
+        
+        self.camera_manager.recording_started.connect(self._on_cam_recording_started)
+        self.camera_manager.recording_stopped.connect(self._on_cam_recording_stopped)
         
         self.in_width.textChanged.connect(self._update_dimensions)
         self.in_thickness.textChanged.connect(self._update_dimensions)
@@ -594,6 +700,10 @@ class Dashboard(QMainWindow):
         self.cb_ports.addItems(ports)
         if current in ports:
             self.cb_ports.setCurrentText(current)
+        elif "COM3" in ports:
+            self.cb_ports.setCurrentText("COM3")
+        elif ports:
+            self.cb_ports.setCurrentIndex(0)
 
     def _on_mock_toggled(self, checked: bool):
         self.controller.enable_mock_mode(checked)
@@ -643,6 +753,8 @@ class Dashboard(QMainWindow):
             return
             
         meta = self._get_ui_metadata()
+        meta["video_path"] = getattr(self.camera_manager, 'last_recorded_video', '')
+        meta["snapshot_path"] = getattr(self.camera_manager.worker, '_latest_snapshot_path', '')
         res = {
             "peak_load": self.controller.peak_load,
             "peak_stress": self.controller.peak_stress
@@ -745,13 +857,15 @@ class Dashboard(QMainWindow):
         self.graph.export_image(img_path)
         
         meta = self._get_ui_metadata()
+        meta["video_path"] = getattr(self.camera_manager, 'last_recorded_video', '')
+        snap_path = getattr(self.camera_manager.worker, '_latest_snapshot_path', None)
         res = {
             "peak_load": self.controller.peak_load,
             "peak_stress": self.controller.peak_stress
         }
         
         try:
-            pdf_file = self.report_generator.generate_pdf(meta, res, img_path)
+            pdf_file = self.report_generator.generate_pdf(meta, res, img_path, snapshot_path=snap_path)
             if os.path.exists(img_path):
                 os.remove(img_path)
                 
@@ -827,15 +941,31 @@ class Dashboard(QMainWindow):
             self.lbl_state_val.setStyleSheet("color: #16a34a; font-weight: 800; font-size: 12px;")
             self.test_time = QTime(0, 0, 0)
             self.timer.start(1000)
+            # Synchronized Auto-Recording on Test Start
+            if hasattr(self, 'camera_widget') and self.camera_widget.chk_auto_rec.isChecked():
+                sample_id = self.in_sample.text().strip() or "SMP-001"
+                self.camera_manager.start_recording(sample_id)
         elif state == MachineState.COMPLETED:
             self.lbl_state_val.setStyleSheet("color: #0284c7; font-weight: 800; font-size: 12px;")
             self.timer.stop()
+            # Capture specimen fracture surface snapshot upon test completion
+            if hasattr(self, 'camera_manager'):
+                try:
+                    self.camera_manager.take_snapshot()
+                except Exception:
+                    pass
+                if self.camera_manager.is_recording():
+                    self.camera_manager.stop_recording()
         elif state in [MachineState.EMERGENCY_STOP, MachineState.COMMUNICATION_LOST]:
             self.lbl_state_val.setStyleSheet("color: #dc2626; font-weight: 800; font-size: 12px;")
             self.timer.stop()
+            if hasattr(self, 'camera_manager') and self.camera_manager.is_recording():
+                self.camera_manager.stop_recording()
         else:
             self.lbl_state_val.setStyleSheet("color: #0f172a; font-weight: 700; font-size: 12px;")
             self.timer.stop()
+            if hasattr(self, 'camera_manager') and self.camera_manager.is_recording():
+                self.camera_manager.stop_recording()
 
     def _start_test(self):
         if self.controller.mock_mode or self.controller.serial_manager.is_connected:
@@ -844,7 +974,34 @@ class Dashboard(QMainWindow):
             self.lbl_time.setText("00:00:00")
             self.controller.start_test()
         else:
-            QMessageBox.warning(self, "Hardware Offline", "Please connect to the machine COM port or enable Simulation Mode.")
+            res = QMessageBox.question(
+                self, 
+                "Machine Hardware Offline", 
+                "Physical UTM machine is not connected to a COM port.\n\n"
+                "Would you like to start the test in Simulation Mode\n"
+                "(with live curve generation and synchronized camera recording)?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes
+            )
+            if res == QMessageBox.Yes:
+                self.chk_mock.setChecked(True)
+                self.controller.enable_mock_mode(True)
+                self.graph.clear_graph()
+                self.test_time = QTime(0, 0, 0)
+                self.lbl_time.setText("00:00:00")
+                self.controller.start_test()
+
+    def _stop_test(self):
+        # 1. Stop hardware / simulation controller
+        if hasattr(self, 'controller'):
+            self.controller.stop_test()
+            
+        # 2. Stop UI timer
+        self.timer.stop()
+        
+        # 3. Always guarantee video recording is stopped and saved!
+        if hasattr(self, 'camera_manager') and self.camera_manager.is_recording():
+            self.camera_manager.stop_recording()
 
     def _update_time(self):
         self.test_time = self.test_time.addSecs(1)
@@ -878,3 +1035,109 @@ class Dashboard(QMainWindow):
         self.lbl_peak_stress.setText(f"{p_stress:.2f}")
         
         self.graph.add_point(time_s, load_kN, ext, stress, strain)
+        
+        # Stamped Live Machine Telemetry into Camera Recording HUD
+        if hasattr(self, 'camera_manager'):
+            self.camera_manager.update_telemetry({
+                "load_kN": load_kN,
+                "stress_MPa": stress,
+                "ext_mm": ext,
+                "strain_pct": strain,
+                "time_str": self.lbl_time.text(),
+                "state_str": self.lbl_state_val.text(),
+                "sample_id": self.in_sample.text(),
+                "material": self.in_material.text(),
+                "standard": self.in_standard.text()
+            })
+
+    def _on_cam_recording_started(self, path: str):
+        self.lbl_cam_indicator.setText("● REC ACTIVE")
+        self.lbl_cam_indicator.setStyleSheet("font-size: 11px; font-weight: 700; color: #dc2626; background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 2px 10px;")
+
+    def _on_cam_recording_stopped(self, path: str, duration: float):
+        self.lbl_cam_indicator.setText("● Vision Ready")
+        self.lbl_cam_indicator.setStyleSheet("font-size: 11px; font-weight: 700; color: #16a34a; background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 2px 10px;")
+        
+        if path and os.path.exists(path) and os.path.getsize(path) > 2048:
+            file_size_mb = os.path.getsize(path) / (1024 * 1024)
+            size_str = f"{file_size_mb:.2f} MB" if file_size_mb >= 1.0 else f"{os.path.getsize(path)/1024:.0f} KB"
+            fname = os.path.basename(path)
+            self._show_video_saved_dialog(path, fname, size_str, duration)
+
+    def _show_video_saved_dialog(self, path: str, fname: str, size_str: str, duration: float):
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Video Recording Saved - UTM Professional")
+        msg.setIcon(QMessageBox.Information)
+        msg.setTextFormat(Qt.RichText)
+        msg.setText(
+            f"<h3 style='color: #16a34a; margin-bottom: 6px;'>✔ Video Recording Saved Successfully!</h3>"
+            f"<p style='font-size: 12px; color: #1e293b; margin: 4px 0;'>"
+            f"<b>File:</b> <code>{fname}</code><br>"
+            f"<b>Size:</b> {size_str} &nbsp;|&nbsp; <b>Duration:</b> {duration:.1f}s<br>"
+            f"<b>Location:</b> <span style='color: #0284c7;'>{os.path.dirname(path)}</span>"
+            f"</p>"
+            f"<p style='font-size: 11px; color: #64748b; margin-top: 6px;'>"
+            f"Machine telemetry (Load, Stress, Strain, Ext) and specimen tracking overlays have been permanently stamped onto this video."
+            f"</p>"
+        )
+        btn_play = msg.addButton("▶ Play Video", QMessageBox.ActionRole)
+        btn_open = msg.addButton("📁 Open Folder", QMessageBox.ActionRole)
+        btn_ok = msg.addButton("OK", QMessageBox.AcceptRole)
+        msg.setDefaultButton(btn_play)
+        
+        btn_play.setStyleSheet("background-color: #16a34a; color: white; font-weight: bold; padding: 6px 14px; border-radius: 4px; font-size: 11px;")
+        btn_open.setStyleSheet("background-color: #0284c7; color: white; font-weight: bold; padding: 6px 14px; border-radius: 4px; font-size: 11px;")
+        btn_ok.setStyleSheet("background-color: #f1f5f9; color: #334155; font-weight: bold; padding: 6px 14px; border-radius: 4px; font-size: 11px;")
+        
+        msg.exec()
+        
+        if msg.clickedButton() == btn_play:
+            QDesktopServices.openUrl(QUrl.fromLocalFile(path))
+        elif msg.clickedButton() == btn_open:
+            QDesktopServices.openUrl(QUrl.fromLocalFile(os.path.dirname(path)))
+
+    def _set_active_view(self, mode: str):
+        self.active_view = mode
+        
+        for btn, btn_mode in [(self.btn_view_dual, "dual"), 
+                              (self.btn_view_graph, "graph"), 
+                              (self.btn_view_camera, "camera")]:
+            if mode == btn_mode:
+                btn.setStyleSheet("""
+                    background-color: #0284c7;
+                    color: #ffffff;
+                    border: 1px solid #0369a1;
+                    border-radius: 6px;
+                    font-size: 11px;
+                    font-weight: 700;
+                    padding: 5px 14px;
+                """)
+            else:
+                btn.setStyleSheet("""
+                    background-color: #f1f5f9;
+                    color: #475569;
+                    border: 1px solid #cbd5e1;
+                    border-radius: 6px;
+                    font-size: 11px;
+                    font-weight: 700;
+                    padding: 5px 14px;
+                """)
+
+        if mode == "graph":
+            self.graph_card.setVisible(True)
+            self.camera_card.setVisible(False)
+        elif mode == "camera":
+            self.graph_card.setVisible(False)
+            self.camera_card.setVisible(True)
+        elif mode == "dual":
+            self.graph_card.setVisible(True)
+            self.camera_card.setVisible(True)
+            total_w = self.view_splitter.width() or 800
+            self.view_splitter.setSizes([total_w // 2, total_w // 2])
+
+    def closeEvent(self, event):
+        if hasattr(self, 'camera_manager'):
+            self.camera_manager.stop_camera()
+        if hasattr(self, 'controller') and self.controller.state == MachineState.RUNNING:
+            self.controller.stop_test()
+        event.accept()
